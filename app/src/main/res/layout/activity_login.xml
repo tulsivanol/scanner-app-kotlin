@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_margin="10dp"
+    android:layout_height="match_parent"
+    tools:context=".ui.activities.LoginActivity">
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:id="@+id/email_layout"
+        android:layout_marginTop="150dp"
+        android:layout_height="wrap_content">
+        <com.google.android.material.textfield.TextInputEditText
+            android:layout_width="match_parent"
+            android:hint="Email"
+            android:layout_margin="10dp"
+            android:inputType="textEmailAddress"
+            android:id="@+id/login_email"
+            android:layout_height="wrap_content"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:id="@+id/password_layout"
+        android:layout_below="@id/email_layout"
+        android:layout_height="wrap_content">
+        <com.google.android.material.textfield.TextInputEditText
+            android:layout_width="match_parent"
+            android:hint="Password"
+            android:layout_margin="10dp"
+            android:inputType="textWebPassword"
+            android:id="@+id/login_password"
+            android:layout_height="wrap_content"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:layout_width="wrap_content"
+        android:text="Login"
+        android:id="@+id/login_btn"
+        android:layout_marginTop="25dp"
+        android:layout_below="@id/password_layout"
+        android:textColor="@color/white"
+        android:layout_centerHorizontal="true"
+        android:background="@color/colorPrimary"
+        android:layout_height="wrap_content"/>
+</RelativeLayout>
