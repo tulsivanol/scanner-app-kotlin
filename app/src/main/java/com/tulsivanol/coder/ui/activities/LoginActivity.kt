@@ -1,17 +1,21 @@
 package com.tulsivanol.coder.ui.activities
 
+import android.Manifest
 import android.app.Dialog
 import android.content.Intent
 import android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
 import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.tulsivanol.coder.R
 import com.tulsivanol.coder.api.MyApi
 import com.tulsivanol.coder.api.MyInstance
+import com.tulsivanol.coder.constants.Constants
 import com.tulsivanol.coder.model.LoginCredentials
-import com.tulsivanol.coder.model.User
 import com.tulsivanol.coder.utils.Helper
 import com.tulsivanol.coder.utils.PrefManager
 import kotlinx.android.synthetic.main.activity_login.*
@@ -19,8 +23,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import retrofit2.Call
-import retrofit2.Response
 
 class LoginActivity : AppCompatActivity() {
 
@@ -35,6 +37,8 @@ class LoginActivity : AppCompatActivity() {
 
         retrofit = MyInstance.getApi
         prefManager = PrefManager(this)
+
+        requestCameraPermission()
 
         login_btn.setOnClickListener {
             if (login_password.text!!.equals("")) {
@@ -74,9 +78,63 @@ class LoginActivity : AppCompatActivity() {
                 }
             } else {
                 withContext(Dispatchers.Main) {
-                    Helper.showToast(response.message(), this@LoginActivity)
+                    progressDialog.dismiss()
+                    if (response.code() == 401) {
+                        Helper.showToast("Invalid Credentials", this@LoginActivity)
+                    }
+                    Log.d(TAG, "loginUser: error ${response.errorBody().toString()}")
                 }
-                Log.d(TAG, "loginUser: error ${response.message()}")
+            }
+        }
+    }
+
+    private fun requestCameraPermission() {
+        if (ContextCompat.checkSelfPermission(
+                this@LoginActivity,
+                Manifest.permission.CAMERA
+            ) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(
+                    this@LoginActivity,
+                    Manifest.permission.CAMERA
+                )
+            ) {
+                ActivityCompat.requestPermissions(
+                    this@LoginActivity,
+                    arrayOf(Manifest.permission.CAMERA), Constants.REQUEST_CODE
+                )
+            } else {
+                ActivityCompat.requestPermissions(
+                    this@LoginActivity,
+                    arrayOf(Manifest.permission.CAMERA), Constants.REQUEST_CODE
+                )
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        when (requestCode) {
+            Constants.REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    if ((ContextCompat.checkSelfPermission(
+                            this@LoginActivity,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED)
+                    ) {
+                        Helper.showToast("Permission Granted", this@LoginActivity)
+                    } else {
+                        Helper.showToast(
+                            "Permission Denied.Please grant permission",
+                            this@LoginActivity
+                        )
+                    }
+                    return
+                }
             }
         }
     }

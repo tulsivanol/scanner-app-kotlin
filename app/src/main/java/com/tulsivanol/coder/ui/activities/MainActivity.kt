@@ -1,32 +1,24 @@
 package com.tulsivanol.coder.ui.activities
 
-import android.Manifest
+import android.app.Dialog
 import android.content.Intent
 import android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
 import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-import android.content.pm.PackageManager
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import com.budiyev.android.codescanner.AutoFocusMode
-import com.budiyev.android.codescanner.CodeScanner
-import com.budiyev.android.codescanner.DecodeCallback
-import com.budiyev.android.codescanner.ErrorCallback
-import com.budiyev.android.codescanner.ScanMode
+import androidx.appcompat.app.AppCompatActivity
+import com.budiyev.android.codescanner.*
 import com.tulsivanol.coder.R
 import com.tulsivanol.coder.api.MyApi
 import com.tulsivanol.coder.api.MyInstance
-import com.tulsivanol.coder.constants.Constants
 import com.tulsivanol.coder.model.QRCodeData
 import com.tulsivanol.coder.utils.Helper
 import com.tulsivanol.coder.utils.PrefManager
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
+import org.json.JSONException
+import org.json.JSONObject
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -55,10 +47,7 @@ class MainActivity : AppCompatActivity() {
 //        callbacks
         codeScanner.decodeCallback = DecodeCallback {
             runOnUiThread {
-                Helper.showToast(it.text, this)
-                CoroutineScope(Dispatchers.IO).launch {
-                    sendQRCodeToApi(it.text)
-                }
+                sendQRCodeToApi(it.text)
             }
         }
 
@@ -71,72 +60,71 @@ class MainActivity : AppCompatActivity() {
         scanner_view.setOnClickListener {
             codeScanner.startPreview()
         }
-
-        requestCameraPermission()
     }
 
-    private suspend fun sendQRCodeToApi(qrCode: String?) {
-        withContext(Dispatchers.IO){
-            val response = retrofit.sendQRCodeResult(QRCodeData(qrCode!!))
-            if (response.isSuccessful){
-                Helper.showToast("Something went wrong ${response.body()!!.success}",this@MainActivity)
-                Helper.showToast("Something went wrong ${response.body()!!.error}",this@MainActivity)
-                Log.d(TAG, "sendQRCodeToApi: ${response.body()!!.success}")
-                Log.d(TAG, "sendQRCodeToApi: ${response.body()!!.error}")
-            }else{
-                withContext(Dispatchers.Main){
-                    Helper.showToast("Something went wrong ${response.message()}",this@MainActivity)
-                }
-            }
-        }
-    }
-
-    private fun requestCameraPermission() {
-        if (ContextCompat.checkSelfPermission(
-                this@MainActivity,
-                Manifest.permission.CAMERA
-            ) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(
-                    this@MainActivity,
-                    Manifest.permission.CAMERA
-                )
-            ) {
-                ActivityCompat.requestPermissions(
-                    this@MainActivity,
-                    arrayOf(Manifest.permission.CAMERA), Constants.REQUEST_CODE
-                )
-            } else {
-                ActivityCompat.requestPermissions(
-                    this@MainActivity,
-                    arrayOf(Manifest.permission.CAMERA), Constants.REQUEST_CODE
-                )
-            }
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        when (requestCode) {
-            Constants.REQUEST_CODE -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if ((ContextCompat.checkSelfPermission(
-                            this@MainActivity,
-                            Manifest.permission.ACCESS_FINE_LOCATION
-                        ) == PackageManager.PERMISSION_GRANTED)
-                    ) {
-                        Helper.showToast("Permission Granted", this@MainActivity)
-                    } else {
-                        Helper.showToast(
-                            "Permission Denied.Please grant permission",
-                            this@MainActivity
-                        )
+    private fun sendQRCodeToApi(qrCode: String?) {
+        var progressDialog: Dialog? = null
+        progressDialog = Helper.showDialog(this@MainActivity)
+        progressDialog.show()
+        CoroutineScope(Dispatchers.IO).launch {
+            val headers =
+                HashMap<String, String>()
+            headers["Authorization"] = "Bearer ${prefManager.getToken()}"
+            val response = retrofit.sendQRCodeResult(headers, QRCodeData("8597603342225876"))
+            if (response.code() == 401) {
+                withContext(Dispatchers.Main) {
+                    try {
+                        var resStr: String? = null
+                        if (response.body() != null) {
+                            resStr = response.body()?.string()
+                        } else {
+                            resStr = response.errorBody()?.string()
+                        }
+                        val json: JSONObject? = JSONObject(resStr!!)
+                        progressDialog.dismiss()
+                        Log.d(TAG, "sendQRCodeToApi: $resStr")
+                        if (json!!.has("success")) {
+                            val dialog = Helper.showAlertDialogWithoutBtn(
+                                this@MainActivity,
+                                json!!.getString("success")
+                            )
+                            dialog.show()
+                            delay(1000)
+                            dialog.hide()
+                            codeScanner.releaseResources()
+                            codeScanner.startPreview()
+                        } else if (json!!.has("error")) {
+                            val dialog = Helper.showAlertDialogWithBtn(
+                                this@MainActivity,
+                                json!!.getString("error"),
+                                codeScanner
+                            )
+                            dialog.show()
+                        } else {
+                            Log.d(TAG, "sendQRCodeToApi: error")
+                            codeScanner.releaseResources()
+                            codeScanner.startPreview()
+                        }
+                    } catch (e: JSONException) {
+                        e.printStackTrace()
                     }
-                    return
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    try {
+                        val resStr = response.errorBody()?.string()
+                        val json: JSONObject? = JSONObject(resStr!!)
+                        if (json!!.has("error")) {
+                            val dialog = Helper.showAlertDialogWithBtn(
+                                this@MainActivity,
+                                json!!.getString("error"),
+                                codeScanner
+                            )
+                            dialog.show()
+                        }
+                    } catch (e: JSONException) {
+                        e.printStackTrace()
+                    }
                 }
             }
         }
